@@ -3,3 +3,131 @@ from tensorflow.keras import datasets, layers, models
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.image as mpimg
+
+#download CIFAR10 
+
+(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+# Scale pixel values to be between 0 and 1
+#shuffling
+indsTrain = np.arange(len(train_images))
+np.random.shuffle(indsTrain)
+indsTest = np.arange(len(test_images))
+np.random.shuffle(indsTest)
+(train_images, train_labels),(test_images, test_labels) = (train_images[indsTrain], train_labels[indsTrain]), (test_images[indsTest], test_labels[indsTest])
+
+train_images_processed, test_images_processed = train_images / 255.0, test_images / 255.0
+
+# make labels one-hot representation
+train_labels_one_hot = tf.one_hot(train_labels, 10)[:, 0, :]
+print(train_labels_one_hot)
+test_labels_one_hot = tf.one_hot(test_labels, 10)[:, 0, :]
+
+
+# Verify shapes 
+print("train_images Shape: ", train_images.shape[0])
+print("test_images Shape: ", test_images.shape[0])
+print("train_labels Shape: ", train_labels.shape[0])
+print("test_labels Shape: ", test_labels.shape[0])
+print("train_labels_one_hot Shape: ", train_labels_one_hot.shape)
+print("test_labels_one_hot Shape: ", train_labels_one_hot.shape)
+
+print("train_images Shape: ", train_images.shape)
+print("test_images Shape: ", test_images.shape)
+print("train_labels Shape: ", train_labels.shape)
+print("test_labels Shape: ", test_labels.shape)
+
+class_names = ['airplane', 'automobile', 'bird', 'cat', 'deer',
+               'dog', 'frog', 'horse', 'ship', 'truck']
+
+plt.figure(figsize=(10,10))
+for i in range(25):
+    plt.subplot(5,5,i+1)
+    plt.xticks([])
+    plt.yticks([])
+    plt.grid(False)
+    plt.imshow(train_images[i], cmap=plt.cm.binary)
+    # The CIFAR labels happen to be arrays,
+    # which is why you need the extra index
+    plt.xlabel(class_names[train_labels[i][0]])
+plt.show()
+
+# Model architecture 
+
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+datagen = ImageDataGenerator(
+   rotation_range=15,
+   width_shift_range=0.1,
+   height_shift_range=0.1,
+   horizontal_flip=True
+)
+datagen.fit(train_images_processed)
+train_batches = datagen.flow(train_images_processed, y = train_labels_one_hot, batch_size = 256)
+
+cnn = models.Sequential()
+cnn.add(layers.Conv2D(32, (3, 3), activation='relu', padding = 'valid', input_shape=(32, 32, 3)))
+cnn.add(layers.Conv2D(64, (3, 3), activation='relu', padding = 'valid'))
+cnn.add(layers.BatchNormalization())
+cnn.add(layers.MaxPooling2D(pool_size=(2, 2)))
+cnn.add(layers.Dropout(rate = .2))
+
+cnn.add(layers.Conv2D(128, (3, 3), activation='relu', padding = 'valid'))
+cnn.add(layers.Conv2D(256, (3, 3), activation='relu', padding = 'valid'))
+cnn.add(layers.Conv2D(512, (3, 3), activation='relu', padding = 'same'))
+cnn.add(layers.BatchNormalization())
+cnn.add(layers.MaxPooling2D(pool_size=(2, 2)))
+cnn.add(layers.Dropout(rate = .25))
+
+cnn.add(layers.Conv2D(1024, (3, 3), activation='relu', padding = 'same'))
+cnn.add(layers.Conv2D(1024, (3, 3), activation='relu', padding = 'same'))
+cnn.add(layers.BatchNormalization())
+cnn.add(layers.MaxPooling2D(pool_size=(2, 2)))
+cnn.add(layers.Dropout(rate = .2))
+
+cnn.add(layers.Flatten())
+cnn.add(layers.Dense(1024, activation='relu'))
+cnn.add(layers.BatchNormalization())
+cnn.add(layers.Dense(1024, activation='relu'))
+cnn.add(layers.Dense(10, activation='softmax'))
+
+cnn.summary()
+
+#compile 
+cnn.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+#train 
+history = cnn.fit(train_batches, epochs = 30, validation_split = 0.1, validation_data = (test_images_processed, test_labels_one_hot), workers = 32)
+
+#check predictions 
+plt.plot(history.history['loss'], label = 'training loss')
+plt.plot(history.history['val_loss'], label = 'testing loss')
+plt.grid()
+plt.legend()
+plt.show()
+
+
+plt.plot(history.history['accuracy'], label = 'training accuracy')
+plt.plot(history.history['val_accuracy'], label = 'testing accuracy')
+plt.grid()
+plt.legend()
+plt.ylim(0,1)
+plt.show()
+
+predictions = cnn.predict(test_images)
+
+rand = np.random.randint(0,10000)
+predicted_label = np.argmax(predictions[rand])
+plt.figure(figsize=(5,5))
+plt.imshow(test_images[rand], cmap='inferno')
+plt.title(f'True Label: {class_names[test_labels[rand][0]]}, Predicted Label: {class_names[predicted_label]}')
+plt.axis('off')
+plt.show()
+
+#evaluate model 
+predictions = model.predict(test_images_processed)
+rand = np.random.randint(0, 10000)
+predicted_label = np.argmax(predictions[rand])
+plt.figure(figsize=(5, 5))
+plt.imshow(test_images[rand], cmap='inferno')
+plt.title(f'True Label: {class_names[test_labels[rand][0]]}, Predicted Label: {class_names[predicted_label]}')
+plt.axis('off')
+plt.show()
